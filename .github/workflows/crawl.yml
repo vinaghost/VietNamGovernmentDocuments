@@ -1,0 +1,32 @@
+name: Run VNgdcrawler
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    types: [closed]
+jobs:
+  run:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'new-document')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Write GSA_CREDENTIAL to service_account.json
+        run: |
+          echo "${{ secrets.GSA_CREDENTIAL }}" | base64 -d > service_account.json
+  
+      - name: Run Docker container
+        run: |
+           docker run \
+             --env GIT_EMAIL=${{ secrets.GIT_EMAIL }} \
+             --env GIT_NAME=${{ secrets.GIT_NAME }} \
+             --env PAT=${{ secrets.PAT }} \
+             -v $(pwd)/service_account.json:~/.config/gspread/service_account.json \
+             ghcr.io/${{ github.repository_owner }}/vngdcrawler:latest
